@@ -1,2 +1,2 @@
 # podlozhnyy_module
-Собраны наиболее часто используемые в работе функции
+Obe place for the most useful methods for work
