@@ -689,10 +689,11 @@ def plot_gain_chart(target, predict, num_buck=10):
     return hv.Overlay([bars_gain, curve_gain]).redim.label(**{'target': 'Bad Rate'})\
              .relabel(f'HL_score = {H}').opts(plot={'legend_position': 'top_left'})
 
+
 # Для визуализации коэффициентов линейных и не только моделей
 
 
-def feature_importance(names, values, verbose=False):
+def feature_importance(names, values, verbose=False, thr=0.05):
     """
     Возвращает словарь и печатает в порядке убывания коэффициенты для признаков
 
@@ -701,6 +702,7 @@ def feature_importance(names, values, verbose=False):
     names: Список наименований признаков
     values: Список коэффициентов для этих признаков
     verbose: Стоит ли печатать результат
+    thr: Не выводить признаки с меньшим вкладом
     """
     names = names.tolist()
     val_dict = {}
@@ -710,8 +712,10 @@ def feature_importance(names, values, verbose=False):
         coef_list = list(val_dict.items())
         coef_list.sort(key=lambda i: i[1], reverse=True)
         for i in coef_list:
-            print(i[0], ':', round(i[1], 5))
+            if i[1] >= thr:
+                print(i[0], ':', round(i[1], 5))
     return val_dict
+
 
 # Методы для перестановочных статистических критериев
 
@@ -1212,6 +1216,62 @@ def stat_difference_by_flg(df, feature, target, name, flg, num_buck=10):
                              'AR_decrease_min': name + '_decrease_min',
                              'AR_decrease_max': name + '_decrease_max'})\
             .set_index('bucket')
+
+
+# Остальное
+
+
+def plot_dual_axis(data, col1, col2, title=None):
+    """
+    Построение графика с двумя осями ординат
+
+    Parameters
+    ----------
+    data: Объект pandas.DataFrame
+    col1: Название основоного признака (левая ось)
+    col2: Название дополнительного признака (правая ось)
+    title: Заголовок графика
+    """
+    fig, ax1 = plt.subplots(
+        figsize=(12, 6)
+    )
+    ax2 = ax1.twinx()
+
+    ax2.bar(
+        data.index,
+        data[col2],
+        width=20,
+        alpha=0.15,
+        fill=True,
+        edgecolor='b'
+    )
+    ax1.plot(
+        data.index,
+        data[col1],
+        'go--',
+        linewidth=2
+    )
+
+    def naming(name):
+        return ' '.join(
+            [x[0].upper() + x[1:]
+             for x in name.split('_')
+            ]
+        )
+
+    ax1.set_xlabel(
+        naming(data.index.name)
+    )
+    ax1.set_ylabel(
+        naming(col1),
+        color='g'
+    )
+    ax2.set_ylabel(
+        naming(col2),
+        color='b'
+    )
+    plt.title(title)
+    plt.show()
 
 
 # Пишем приветственное сообщение
