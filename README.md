@@ -1,4 +1,4 @@
-# podlozhnyy_module
+# podlozhnyy-module
 
 A set of tools to simplify data analysis in particular:
  - risk analytics
@@ -10,7 +10,7 @@ A set of tools to simplify data analysis in particular:
 Easy installation via `pip`
 
 ```
-$ pip install podlozhnyy_module
+$ pip install podlozhnyy-module
 ```
 
 ### For developers
@@ -25,7 +25,7 @@ $ source my_env/bin/activate
 
 2. Copy the repo
 ```
-$ git clone https://github.com/NPodlozhniy/portugal-holiday.git
+$ git clone https://github.com/NPodlozhniy/podlozhnyy-module.git
 ```
 
 3. Install requirement dependecies for developers
@@ -41,5 +41,5 @@ $ twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
 5. To test the package create another virtual environment and then install library from PyPI using the following command
 ```
-$ pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple podlozhnyy_module
+$ pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple podlozhnyy-module
 ```
