@@ -1,5 +1,9 @@
 # podlozhnyy_module
-One place for the most useful methods for work
+
+A set of tools to simplify data analysis in particular:
+ - risk analytics
+ - time series construction
+ - classical machine learning
 
 ### Getting started
 
