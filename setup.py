@@ -8,7 +8,7 @@ with open("requirements.txt", "r") as req_file:
 
 setup(
     name="podlozhnyy_module",
-    version="1.3",
+    version="2.0",
     description="One place for the most useful methods for work",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -20,7 +20,7 @@ setup(
     # find packages only, doesn't install files tht doesn't belong to any package
     packages=find_packages(),
     # have to provide module name in the separate argument 
-    py_modules=["podlozhnyy_module"],
+    # py_modules=["podlozhnyy_module"],
     install_requires=requirements,
     classifiers=[
         "Development Status :: 3 - Alpha",
