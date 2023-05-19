@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import seaborn as sns
-
 from matplotlib import pyplot as plt
 
 from podlozhnyy_module import (
@@ -13,10 +12,10 @@ from podlozhnyy_module import (
     permutation,
     regression,
     timeseries,
-    timetest
+    timetest,
 )
 
-print('Привет! Ты импортировал модуль созданный https://github.com/NPodlozhniy')
-print('В нем собраны часто востребованные в работе аналитика методы')
-print('Посмотреть полный cписок пакетов можно с помощью команды dir(<название библиотеки>)')
-print('Приятного использования!')
+print("Привет! Ты импортировал модуль созданный https://github.com/NPodlozhniy")
+print("В нем собраны часто востребованные в работе аналитика методы")
+print("Посмотреть полный cписок пакетов можно с помощью dir(<название библиотеки>)")
+print("Приятного использования!")

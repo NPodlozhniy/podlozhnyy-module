@@ -1,4 +1,5 @@
 from itertools import combinations
+
 from nltk.corpus import stopwords
 
 from podlozhnyy_module import pd

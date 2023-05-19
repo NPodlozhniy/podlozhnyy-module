@@ -1,81 +1,94 @@
-import holoviews as hv
-
+from functools import wraps
 from itertools import product
+from math import log
 
-from sklearn.metrics import r2_score
+import holoviews as hv
+from scipy.stats import f as fisher
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 from statsmodels.stats.proportion import proportion_confint
-
-from math import log
-from functools import wraps
-from scipy.stats import f as fisher
 
 from podlozhnyy_module import np, pd, plt
 
 
 def _set_options(func):
     """Обертка для применения визуальных настроек"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         diagramm = func(*args, **kwargs)
-        for bnd, opts in [('matplotlib', matplotlib_opts),
-                          ('bokeh', bokeh_opts)]:
-            if (bnd in hv.Store._options and bnd == hv.Store.current_backend):
+        for bnd, opts in [("matplotlib", matplotlib_opts), ("bokeh", bokeh_opts)]:
+            if bnd in hv.Store._options and bnd == hv.Store.current_backend:
                 return diagramm.opts(opts)
         return diagramm
+
     return wrapper
 
 
-colors = hv.Cycle(['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-                   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
+colors = hv.Cycle(
+    [
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+        "#bcbd22",
+        "#17becf",
+    ]
+)
 
 matplotlib_opts = {
-    'Scatter.Weight_of_Evidence': {
-        'plot': dict(show_grid=True, legend_position='right', width=450),
-        'style': dict(color='r', size=5),
+    "Scatter.Weight_of_Evidence": {
+        "plot": dict(show_grid=True, legend_position="right", width=450),
+        "style": dict(color="r", size=5),
     },
-    'NdOverlay.Objects_rate': {
-        'plot': dict(xrotation=45, legend_cols=1, legend_position='right'),
+    "NdOverlay.Objects_rate": {
+        "plot": dict(xrotation=45, legend_cols=1, legend_position="right"),
     },
-    'Spread.Objects_rate': {
-        'plot': dict(show_legend=True, show_grid=True),
-        'style': dict(facecolor=colors),
+    "Spread.Objects_rate": {
+        "plot": dict(show_legend=True, show_grid=True),
+        "style": dict(facecolor=colors),
     },
-    'Overlay.Woe_Stab': {
-        'plot': dict(legend_position='right'),
+    "Overlay.Woe_Stab": {
+        "plot": dict(legend_position="right"),
     },
-    'Curve.Weight_of_Evidence': {
-        'style': dict(color=colors),
+    "Curve.Weight_of_Evidence": {
+        "style": dict(color=colors),
     },
-    'Spread.Confident_Intervals': {
-        'plot': dict(show_grid=True, xrotation=45),
-        'style': dict(facecolor=colors, alpha=0.3),
+    "Spread.Confident_Intervals": {
+        "plot": dict(show_grid=True, xrotation=45),
+        "style": dict(facecolor=colors, alpha=0.3),
     },
 }
 
 bokeh_opts = {
-    'Scatter.Weight_of_Evidence': {
-        'plot': dict(show_grid=True, tools=['hover'], legend_position='right', width=450),
-        'style': dict(color='r', size=5),
+    "Scatter.Weight_of_Evidence": {
+        "plot": dict(
+            show_grid=True, tools=["hover"], legend_position="right", width=450
+        ),
+        "style": dict(color="r", size=5),
     },
-    'NdOverlay.Objects_rate': {
-        'plot': dict(xrotation=45, legend_position='right', width=450),
+    "NdOverlay.Objects_rate": {
+        "plot": dict(xrotation=45, legend_position="right", width=450),
     },
-    'Spread.Objects_rate': {
-        'plot': dict(show_legend=True, show_grid=True, tools=['hover']),
-        'style': dict(color=colors),
+    "Spread.Objects_rate": {
+        "plot": dict(show_legend=True, show_grid=True, tools=["hover"]),
+        "style": dict(color=colors),
     },
-    'Overlay.Woe_Stab': {
-        'plot': dict(legend_position='right', width=450),
+    "Overlay.Woe_Stab": {
+        "plot": dict(legend_position="right", width=450),
     },
-    'Curve.Weight_of_Evidence': {
-        'plot': dict(tools=['hover']),
-        'style': dict(color=colors),
+    "Curve.Weight_of_Evidence": {
+        "plot": dict(tools=["hover"]),
+        "style": dict(color=colors),
     },
-    'Spread.Confident_Intervals': {
-        'plot': dict(show_grid=True, xrotation=45),
-        'style': dict(color=colors, alpha=0.3),
+    "Spread.Confident_Intervals": {
+        "plot": dict(show_grid=True, xrotation=45),
+        "style": dict(color=colors, alpha=0.3),
     },
 }
 
@@ -90,25 +103,23 @@ def make_bucket(df, feature, num_buck=10):
     feature: Название признака числового или категориального
     num_buck: Количество бакетов для группирровки
     """
-    bucket = np.ceil(
-        df[feature].rank(
-            pct=True) *
-        num_buck).fillna(
-            num_buck +
-        1)
-    agg = df[feature].groupby(bucket).agg(['min', 'max'])
+    bucket = np.ceil(df[feature].rank(pct=True) * num_buck).fillna(num_buck + 1)
+    agg = df[feature].groupby(bucket).agg(["min", "max"])
 
     def _format_buck(row):
-        if row['bucket'] == num_buck + 1:
-            return 'missing'
-        elif row['min'] == row['max']:
-            return _format_(row['min'])
+        if row["bucket"] == num_buck + 1:
+            return "missing"
+        elif row["min"] == row["max"]:
+            return _format_(row["min"])
         else:
-            return _format_(row['min']) + ' - ' + _format_(row['max'])
+            return _format_(row["min"]) + " - " + _format_(row["max"])
 
-    bucket = df[[feature]].assign(bucket=bucket)\
-        .join(agg, on='bucket')\
+    bucket = (
+        df[[feature]]
+        .assign(bucket=bucket)
+        .join(agg, on="bucket")
         .apply(_format_buck, axis=1)
+    )
 
     return df.assign(bucket=bucket)
 
@@ -126,25 +137,23 @@ def _format_(x, decimal=3):
         div, mod = x // 1, x % 1
         if mod == 0:
             if div == 0:
-                return '%d' % x
+                return "%d" % x
             elif int(np.floor(np.log10(abs(div)))) < 3:
-                return '%d' % x
+                return "%d" % x
         if div == 0:
             power = int(np.floor(np.log10(abs(mod))))
             digits = decimal - power - 1
-            return '%s' % np.around(x, digits)
+            return "%s" % np.around(x, digits)
         else:
             power = int(np.floor(np.log10(abs(div))))
             digits = decimal
             if power < 3:
-                return '%s' % np.around(x, digits)
+                return "%s" % np.around(x, digits)
             elif power < 10:
-                return '%se+0%s' % (np.around(x /
-                                    np.power(10, power), digits), power)
+                return "%se+0%s" % (np.around(x / np.power(10, power), digits), power)
             else:
-                return '%se+%s' % (np.around(x /
-                                   np.power(10, power), digits), power)
-    return '%s' % x
+                return "%se+%s" % (np.around(x / np.power(10, power), digits), power)
+    return "%s" % x
 
 
 @_set_options
@@ -160,13 +169,20 @@ def check_linearity(df, feature, target, num_buck=10):
     target: Название целевой переменной
     num_buck: Количество бакетов, если признак числовой
     """
-    return df.pipe(make_bucket, feature, num_buck) \
-             .groupby('bucket').mean() \
-             .pipe(lambda x: hv.Scatter(zip(np.array(x[feature]), np.array(x[target])),
-                                        kdims=f'{feature}', vdims=f'{target}',
-                                        label=f"Проверка линейности зависимости {target} от {feature}")
-                   * simple_reg(np.array(x[feature]),
-                                np.array(x[target])))
+    return (
+        df.pipe(make_bucket, feature, num_buck)
+        .groupby("bucket")
+        .mean()
+        .pipe(
+            lambda x: hv.Scatter(
+                zip(np.array(x[feature]), np.array(x[target])),
+                kdims=f"{feature}",
+                vdims=f"{target}",
+                label=f"Проверка линейности зависимости {target} от {feature}",
+            )
+            * simple_reg(np.array(x[feature]), np.array(x[target]))
+        )
+    )
 
 
 @_set_options
@@ -181,16 +197,18 @@ def check_homoscedacity(df, feature, target):
     target: Название целевой переменной
     """
     simple_model = LinearRegression()
-    simple_model.fit(
-        np.array(df[feature]).reshape(-1, 1), np.array(df[target]))
+    simple_model.fit(np.array(df[feature]).reshape(-1, 1), np.array(df[target]))
     predicts = simple_model.predict(np.array(df[feature]).reshape(-1, 1))
 
     def get_residuals(y, pred):
         return np.array(y) - np.array(pred)
 
-    return hv.Scatter(zip(predicts, get_residuals(df[target], predicts)),
-                      kdims=['Estimated target'], vdims=['Residual'],
-                      label=f"Проверка гомоскедастичности признака {feature}")
+    return hv.Scatter(
+        zip(predicts, get_residuals(df[target], predicts)),
+        kdims=["Estimated target"],
+        vdims=["Residual"],
+        label=f"Проверка гомоскедастичности признака {feature}",
+    )
 
 
 def _logit(p):
@@ -227,7 +245,7 @@ def _woe_confint(n, cnt, q):
     cnt: кол-во элементов в бакете
     q: вероятность просрочки на всем корпусе
     """
-    p_low, p_high = proportion_confint(n, cnt, method='normal')
+    p_low, p_high = proportion_confint(n, cnt, method="normal")
     return _woe(p_low, q), _woe(p_high, q)
 
 
@@ -245,20 +263,24 @@ def bad_rate(df, feature, target, num_buck=10):
     target: Название целевой переменной
     num_buck: Количество бакетов, если признак числовой
     """
-    if df[feature].dtype == 'O':
-        return df.pipe(make_bucket, feature, num_buck)\
-            .assign(obj_cnt=1)\
-            .groupby('bucket')\
-            .agg({target: 'sum', 'obj_cnt': 'sum'})\
-            .rename(columns={target: 'target_sum'})\
+    if df[feature].dtype == "O":
+        return (
+            df.pipe(make_bucket, feature, num_buck)
+            .assign(obj_cnt=1)
+            .groupby("bucket")
+            .agg({target: "sum", "obj_cnt": "sum"})
+            .rename(columns={target: "target_sum"})
             .assign(bad_rate=lambda x: x.target_sum / x.obj_cnt)
+        )
     else:
-        return df.pipe(make_bucket, feature, num_buck)\
-            .assign(obj_cnt=1)\
-            .groupby('bucket')\
-            .agg({target: 'sum', 'obj_cnt': 'sum', feature: 'mean'})\
-            .rename(columns={target: 'target_sum', feature: 'feature_avg'})\
+        return (
+            df.pipe(make_bucket, feature, num_buck)
+            .assign(obj_cnt=1)
+            .groupby("bucket")
+            .agg({target: "sum", "obj_cnt": "sum", feature: "mean"})
+            .rename(columns={target: "target_sum", feature: "feature_avg"})
             .assign(bad_rate=lambda x: x.target_sum / x.obj_cnt)
+        )
 
 
 def woe(df, feature, target, num_buck=10):
@@ -275,11 +297,13 @@ def woe(df, feature, target, num_buck=10):
     """
     agg = bad_rate(df, feature, target, num_buck).reset_index()
     agg = agg[agg.target_sum != 0]
-    return agg.assign(nums=agg['obj_cnt'].sum(), bad_nums=agg['target_sum'].sum())\
-              .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums))\
-              .drop(['bad_nums', 'nums'], axis=1)\
-              .sort_values(by='woe', ascending=False)\
-              .set_index('bucket')
+    return (
+        agg.assign(nums=agg["obj_cnt"].sum(), bad_nums=agg["target_sum"].sum())
+        .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums))
+        .drop(["bad_nums", "nums"], axis=1)
+        .sort_values(by="woe", ascending=False)
+        .set_index("bucket")
+    )
 
 
 def IV(df, feature, target, num_buck=10):
@@ -293,10 +317,17 @@ def IV(df, feature, target, num_buck=10):
     target: Название целевой переменной
     num_buck: Количество бакетов, если признак числовой
     """
-    return woe(df, feature, target, num_buck)\
-        .assign(iv=lambda x: (x.target_sum / x.target_sum.sum() -
-                              (x.obj_cnt - x.target_sum) / (x.obj_cnt.sum() - x.target_sum.sum())) * x.woe)\
+    return (
+        woe(df, feature, target, num_buck)
+        .assign(
+            iv=lambda x: (
+                x.target_sum / x.target_sum.sum()
+                - (x.obj_cnt - x.target_sum) / (x.obj_cnt.sum() - x.target_sum.sum())
+            )
+            * x.woe
+        )
         .iv.sum()
+    )
 
 
 def iv_report(df, features, target, num_buck=10):
@@ -311,17 +342,18 @@ def iv_report(df, features, target, num_buck=10):
     target: Название целевой переменной
     num_buck: Количество бакетов для разбиения
     """
+
     def desc(x):
         if x > 0.5:
-            power = 'Suspicious'
+            power = "Suspicious"
         elif x > 0.3:
-            power = 'Strong'
+            power = "Strong"
         elif x > 0.1:
-            power = 'Medium'
+            power = "Medium"
         elif x > 0.02:
-            power = 'Weak'
+            power = "Weak"
         else:
-            power = 'Useless'
+            power = "Useless"
         return (x, power)
 
     ivs = {}
@@ -330,10 +362,10 @@ def iv_report(df, features, target, num_buck=10):
 
     ivs = list(ivs.items())
     ivs.sort(key=lambda i: i[1], reverse=True)
-    print('         Name         ||  Value  || Interpretation')
-    print('--------------------------------------------------')
+    print("         Name         ||  Value  || Interpretation")
+    print("--------------------------------------------------")
     for feature in ivs:
-        print(f'{feature[0]:21} ||  {feature[1][0]:.3f}  || {feature[1][1]}')
+        print(f"{feature[0]:21} ||  {feature[1][0]:.3f}  || {feature[1][1]}")
 
 
 def iv_agg(df, features, target, num_bucks=[10, 10]):
@@ -347,36 +379,51 @@ def iv_agg(df, features, target, num_bucks=[10, 10]):
     target: Название целевой переменной
     num_bucks: Список количества бакетов для каждой из переменных
     """
-    index = make_bucket(df[[features[-1]]], features[-1],
-                        num_buck=num_bucks[-1])['bucket'].values
+    index = make_bucket(df[[features[-1]]], features[-1], num_buck=num_bucks[-1])[
+        "bucket"
+    ].values
     columns = []
 
     for i, feature in enumerate(features[:-1]):
-        columns.append(make_bucket(
-            df[[feature]], feature, num_buck=num_bucks[i])['bucket'].values)
+        columns.append(
+            make_bucket(df[[feature]], feature, num_buck=num_bucks[i])["bucket"].values
+        )
 
-    obj_cnt = (pd.crosstab(index=index,
-                           columns=columns,
-                           margins=True))
-    target_sum = (pd.crosstab(index=index,
-                              columns=columns,
-                              values=df[target].values,
-                              aggfunc=np.sum,
-                              margins=True))
-    bad_rate = (pd.crosstab(index=index,
-                            columns=columns,
-                            values=df[target].values,
-                            aggfunc=np.mean,
-                            margins=True))
-    agg = pd.DataFrame({'obj_cnt': obj_cnt.iloc[:-1, :-1].unstack().values,
-                        'target_sum': target_sum.iloc[:-1, :-1].unstack().values,
-                        'bad_rate': bad_rate.iloc[:-1, :-1].unstack().values})
+    obj_cnt = pd.crosstab(index=index, columns=columns, margins=True)
+    target_sum = pd.crosstab(
+        index=index,
+        columns=columns,
+        values=df[target].values,
+        aggfunc=np.sum,
+        margins=True,
+    )
+    bad_rate = pd.crosstab(
+        index=index,
+        columns=columns,
+        values=df[target].values,
+        aggfunc=np.mean,
+        margins=True,
+    )
+    agg = pd.DataFrame(
+        {
+            "obj_cnt": obj_cnt.iloc[:-1, :-1].unstack().values,
+            "target_sum": target_sum.iloc[:-1, :-1].unstack().values,
+            "bad_rate": bad_rate.iloc[:-1, :-1].unstack().values,
+        }
+    )
     agg = agg[agg.target_sum != 0]
-    return agg.assign(nums=agg['obj_cnt'].sum(), bad_nums=agg['target_sum'].sum())\
-              .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums))\
-              .assign(iv=lambda x: (x.target_sum / x.target_sum.sum() -
-                                    (x.obj_cnt - x.target_sum) / (x.obj_cnt.sum() - x.target_sum.sum())) * x.woe)\
-              .iv.sum()
+    return (
+        agg.assign(nums=agg["obj_cnt"].sum(), bad_nums=agg["target_sum"].sum())
+        .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums))
+        .assign(
+            iv=lambda x: (
+                x.target_sum / x.target_sum.sum()
+                - (x.obj_cnt - x.target_sum) / (x.obj_cnt.sum() - x.target_sum.sum())
+            )
+            * x.woe
+        )
+        .iv.sum()
+    )
 
 
 @_set_options
@@ -392,8 +439,13 @@ def simple_reg(predictor, target):
     """
     check = LinearRegression()
     check.fit(predictor.reshape(-1, 1), target)
-    return hv.Curve((np.array([min(predictor) - 1, max(predictor) + 1]),
-                     check.coef_ * np.array([min(predictor) - 1, max(predictor) + 1]) + check.intercept_))
+    return hv.Curve(
+        (
+            np.array([min(predictor) - 1, max(predictor) + 1]),
+            check.coef_ * np.array([min(predictor) - 1, max(predictor) + 1])
+            + check.intercept_,
+        )
+    )
 
 
 def r_2check(df, feature, target, num_buck=10):
@@ -434,40 +486,48 @@ def plot_woe_curve(df, feature, target, num_buck=10):
 
     agg = bad_rate(df, feature, target, num_buck).reset_index()
     agg = agg[(agg.target_sum != 0) & (agg.feature_avg.notnull())]
-    agg = agg.assign(nums=agg['obj_cnt'].sum(), bad_nums=agg['target_sum'].sum())\
-        .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums),
-                woe_low=lambda x: _woe_confint(x.target_sum,
-                                               x.obj_cnt,
-                                               x.bad_nums / x.nums)[0],
-                woe_high=lambda x: _woe_confint(x.target_sum,
-                                                x.obj_cnt,
-                                                x.bad_nums / x.nums)[1])\
-        .assign(woe_u=lambda x: x.woe_high - x.woe,
-                woe_b=lambda x: x.woe - x.woe_low)
+    agg = (
+        agg.assign(nums=agg["obj_cnt"].sum(), bad_nums=agg["target_sum"].sum())
+        .assign(
+            woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums),
+            woe_low=lambda x: _woe_confint(
+                x.target_sum, x.obj_cnt, x.bad_nums / x.nums
+            )[0],
+            woe_high=lambda x: _woe_confint(
+                x.target_sum, x.obj_cnt, x.bad_nums / x.nums
+            )[1],
+        )
+        .assign(woe_u=lambda x: x.woe_high - x.woe, woe_b=lambda x: x.woe - x.woe_low)
+    )
 
     r2_woe = r_2check(df, feature, target, num_buck)
-    scatter = hv.Scatter(data=agg,
-                         kdims=['feature_avg'],
-                         vdims=['woe'],
-                         group='Weight of Evidence',
-                         label=f'r2_score = {r2_woe}')
-    errors = hv.ErrorBars(data=agg,
-                          kdims=['feature_avg'],
-                          vdims=['woe', 'woe_u', 'woe_b'],
-                          group='Confident Intervals')
+    scatter = hv.Scatter(
+        data=agg,
+        kdims=["feature_avg"],
+        vdims=["woe"],
+        group="Weight of Evidence",
+        label=f"r2_score = {r2_woe}",
+    )
+    errors = hv.ErrorBars(
+        data=agg,
+        kdims=["feature_avg"],
+        vdims=["woe", "woe_u", "woe_b"],
+        group="Confident Intervals",
+    )
     reg = simple_reg(np.array(agg.feature_avg), np.array(agg.woe))
-    return hv.Overlay(items=[scatter, errors, reg],
-                      group='Woe Curve',
-                      label=feature).redim.range(feature_avg=(agg.feature_avg.min() * 1.15,
-                                                              agg.feature_avg.max() * 1.15),
-                                                 woe=(agg.woe.min() * 1.15,
-                                                      agg.woe.max() * 1.15))
+    return hv.Overlay(
+        items=[scatter, errors, reg], group="Woe Curve", label=feature
+    ).redim.range(
+        feature_avg=(agg.feature_avg.min() * 1.15, agg.feature_avg.max() * 1.15),
+        woe=(agg.woe.min() * 1.15, agg.woe.max() * 1.15),
+    )
+
 
 # Динамика переменных и WoE
 
 
 @_set_options
-def distribution(df, feature, date, num_buck=10, date_freq='Q'):
+def distribution(df, feature, date, num_buck=10, date_freq="Q"):
     """
     Строит график распределения признака во времени
 
@@ -479,34 +539,43 @@ def distribution(df, feature, date, num_buck=10, date_freq='Q'):
     num_buck: Количество бакетов, если признак числовой
     date_freq: Частота агрегации времени
     """
-    agg = df.pipe(make_bucket, feature, num_buck)\
-            .assign(obj_cnt=1)\
-            .groupby([pd.Grouper(key=date, freq=date_freq), 'bucket'])\
-            .agg({'obj_cnt': sum})\
-            .reset_index()\
-            .assign(obj_total=lambda x: (x.groupby([pd.Grouper(key=date,
-                                                               freq=date_freq)])['obj_cnt'].transform('sum')))\
-            .assign(obj_rate=lambda x: x.obj_cnt / x.obj_total)\
-            .reset_index()\
-            .assign(objects_rate=lambda x:
-                    x.groupby(date).apply(
-                        lambda y: y.obj_rate.cumsum().to_frame())
-                    .reset_index(drop=True))\
-        .assign(obj_rate_u=0, obj_rate_b=lambda x: x['obj_rate'])
+    agg = (
+        df.pipe(make_bucket, feature, num_buck)
+        .assign(obj_cnt=1)
+        .groupby([pd.Grouper(key=date, freq=date_freq), "bucket"])
+        .agg({"obj_cnt": sum})
+        .reset_index()
+        .assign(
+            obj_total=lambda x: (
+                x.groupby([pd.Grouper(key=date, freq=date_freq)])["obj_cnt"].transform(
+                    "sum"
+                )
+            )
+        )
+        .assign(obj_rate=lambda x: x.obj_cnt / x.obj_total)
+        .reset_index()
+        .assign(
+            objects_rate=lambda x: x.groupby(date)
+            .apply(lambda y: y.obj_rate.cumsum().to_frame())
+            .reset_index(drop=True)
+        )
+        .assign(obj_rate_u=0, obj_rate_b=lambda x: x["obj_rate"])
+    )
 
     data = hv.Dataset(
-        agg, kdims=[
-            'bucket', date], vdims=[
-            'objects_rate', 'obj_rate_b', 'obj_rate_u'])
+        agg, kdims=["bucket", date], vdims=["objects_rate", "obj_rate_b", "obj_rate_u"]
+    )
 
-    return data.to.spread(kdims=[date],
-                          vdims=['objects_rate', 'obj_rate_b', 'obj_rate_u'],
-                          group='Objects rate',
-                          label=feature).overlay('bucket')
+    return data.to.spread(
+        kdims=[date],
+        vdims=["objects_rate", "obj_rate_b", "obj_rate_u"],
+        group="Objects rate",
+        label=feature,
+    ).overlay("bucket")
 
 
 @_set_options
-def woe_stab(df, feature, target, date, num_buck=3, date_freq='Q'):
+def woe_stab(df, feature, target, date, num_buck=3, date_freq="Q"):
     """
     Строит WoE признака во времени, позволяет оценить его устойчивость
 
@@ -519,44 +588,46 @@ def woe_stab(df, feature, target, date, num_buck=3, date_freq='Q'):
     num_buck: Количество бакетов, если признак числовой
     date_freq: Частота агрегации времени
     """
-    agg = df.pipe(make_bucket, feature, num_buck)\
-            .assign(obj_cnt=1)\
-            .groupby([pd.Grouper(key=date, freq=date_freq), 'bucket'])\
-            .agg({target: 'sum', 'obj_cnt': sum})\
-            .rename(columns={target: 'target_sum'})\
-            .assign(bad_rate=lambda x: x.target_sum / x.obj_cnt)
+    agg = (
+        df.pipe(make_bucket, feature, num_buck)
+        .assign(obj_cnt=1)
+        .groupby([pd.Grouper(key=date, freq=date_freq), "bucket"])
+        .agg({target: "sum", "obj_cnt": sum})
+        .rename(columns={target: "target_sum"})
+        .assign(bad_rate=lambda x: x.target_sum / x.obj_cnt)
+    )
 
-    agg = agg.assign(nums=agg.groupby([date])['obj_cnt'].transform('sum'),
-                     bad_nums=agg.groupby([date])['target_sum'].transform('sum'))\
-        .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums),
-                woe_low=lambda x: _woe_confint(x.target_sum,
-                                               x.obj_cnt,
-                                               x.bad_nums / x.nums)[0],
-                woe_high=lambda x: _woe_confint(x.target_sum,
-                                                x.obj_cnt,
-                                                x.bad_nums / x.nums)[1])\
-        .assign(woe_u=lambda x: x.woe_high - x.woe,
-                woe_b=lambda x: x.woe - x.woe_low)\
+    agg = (
+        agg.assign(
+            nums=agg.groupby([date])["obj_cnt"].transform("sum"),
+            bad_nums=agg.groupby([date])["target_sum"].transform("sum"),
+        )
+        .assign(
+            woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums),
+            woe_low=lambda x: _woe_confint(
+                x.target_sum, x.obj_cnt, x.bad_nums / x.nums
+            )[0],
+            woe_high=lambda x: _woe_confint(
+                x.target_sum, x.obj_cnt, x.bad_nums / x.nums
+            )[1],
+        )
+        .assign(woe_u=lambda x: x.woe_high - x.woe, woe_b=lambda x: x.woe - x.woe_low)
         .reset_index()
+    )
 
     agg = agg[agg.target_sum != 0]
 
-    data = hv.Dataset(
-        agg, kdims=[
-            'bucket', date], vdims=[
-            'woe', 'woe_b', 'woe_u'])
+    data = hv.Dataset(agg, kdims=["bucket", date], vdims=["woe", "woe_b", "woe_u"])
 
-    confident_intervals = (data.to.spread(kdims=[date],
-                                          vdims=['woe', 'woe_b', 'woe_u'],
-                                          group='Confident Intervals')
-                           .overlay('bucket'))
-    woe_curves = (data.to.curve(kdims=[date],
-                                vdims=['woe'],
-                                group='Weight of Evidence')
-                  .overlay('bucket'))
-    return hv.Overlay(items=[confident_intervals * woe_curves],
-                      group='Woe Stab',
-                      label=f'{feature}')
+    confident_intervals = data.to.spread(
+        kdims=[date], vdims=["woe", "woe_b", "woe_u"], group="Confident Intervals"
+    ).overlay("bucket")
+    woe_curves = data.to.curve(
+        kdims=[date], vdims=["woe"], group="Weight of Evidence"
+    ).overlay("bucket")
+    return hv.Overlay(
+        items=[confident_intervals * woe_curves], group="Woe Stab", label=f"{feature}"
+    )
 
 
 def HL(target, predict, num_buck=10):
@@ -569,18 +640,23 @@ def HL(target, predict, num_buck=10):
     predict - предсказания вероятности
     num_buck - количество бакетов
     """
-    data = pd.DataFrame({'target': target, 'predict': predict})
+    data = pd.DataFrame({"target": target, "predict": predict})
 
     data = (
-        data.pipe(make_bucket, 'predict', num_buck)
-            .assign(obj_cnt=1)
-            .groupby('bucket')
-            .agg({'target': 'sum', 'predict': 'mean', 'obj_cnt': 'sum'})
-            .assign(bad_rate=lambda x: x.target / x.obj_cnt)
-            .reset_index()
+        data.pipe(make_bucket, "predict", num_buck)
+        .assign(obj_cnt=1)
+        .groupby("bucket")
+        .agg({"target": "sum", "predict": "mean", "obj_cnt": "sum"})
+        .assign(bad_rate=lambda x: x.target / x.obj_cnt)
+        .reset_index()
     )
-    return int(sum((data.predict - data.bad_rate) ** 2 /
-               (data.predict * (1 - data.predict)) * data.obj_cnt))
+    return int(
+        sum(
+            (data.predict - data.bad_rate) ** 2
+            / (data.predict * (1 - data.predict))
+            * data.obj_cnt
+        )
+    )
 
 
 @_set_options
@@ -596,25 +672,31 @@ def plot_gain_chart(target, predict, num_buck=10):
     predict - предсказания вероятности
     num_buck - количество бакетов
     """
-    data = pd.DataFrame({'target': target, 'predict': predict})
+    data = pd.DataFrame({"target": target, "predict": predict})
     H = HL(target, predict, num_buck)
     data = (
-        data.assign(bucket=np.ceil(data['predict'].rank(pct=True) * num_buck))
-            .assign(obj_cnt=1)
-            .groupby('bucket')
-            .agg({'target': 'sum', 'predict': 'mean', 'obj_cnt': 'sum'})
-            .assign(bad_rate=lambda x: x.target / x.obj_cnt)
-            .reset_index()
+        data.assign(bucket=np.ceil(data["predict"].rank(pct=True) * num_buck))
+        .assign(obj_cnt=1)
+        .groupby("bucket")
+        .agg({"target": "sum", "predict": "mean", "obj_cnt": "sum"})
+        .assign(bad_rate=lambda x: x.target / x.obj_cnt)
+        .reset_index()
     )
 
-    bars_gain = hv.Bars(data, kdims=['bucket'], vdims=['bad_rate'], label='observed') \
-                  .opts(plot={'xrotation': 90, 'show_legend': True}, style={'color': 'yellow'})
+    bars_gain = hv.Bars(
+        data, kdims=["bucket"], vdims=["bad_rate"], label="observed"
+    ).opts(plot={"xrotation": 90, "show_legend": True}, style={"color": "yellow"})
 
-    curve_gain = hv.Curve(data, kdims=['bucket'], vdims=['predict'], label='predicted') \
-        .opts(plot={'xrotation': 90, 'show_legend': True}, style={'color': 'black'})
+    curve_gain = hv.Curve(
+        data, kdims=["bucket"], vdims=["predict"], label="predicted"
+    ).opts(plot={"xrotation": 90, "show_legend": True}, style={"color": "black"})
 
-    return hv.Overlay([bars_gain, curve_gain]).redim.label(**{'target': 'Bad Rate'})\
-             .relabel(f'HL_score = {H}').opts(plot={'legend_position': 'top_left'})
+    return (
+        hv.Overlay([bars_gain, curve_gain])
+        .redim.label(**{"target": "Bad Rate"})
+        .relabel(f"HL_score = {H}")
+        .opts(plot={"legend_position": "top_left"})
+    )
 
 
 def feature_importance(names, values, verbose=False, thr=0.05):
@@ -637,17 +719,13 @@ def feature_importance(names, values, verbose=False, thr=0.05):
         coef_list.sort(key=lambda i: i[1], reverse=True)
         for i in coef_list:
             if i[1] >= thr:
-                print(i[0], ':', round(i[1], 5))
+                print(i[0], ":", round(i[1], 5))
     return val_dict
 
 
 @_set_options
 def plot_confusion_matrix(
-    cm,
-    classes,
-    normalize=False,
-    title='Confusion matrix',
-    cmap=plt.cm.Blues
+    cm, classes, normalize=False, title="Confusion matrix", cmap=plt.cm.Blues
 ) -> None:
     """
     Печатает и отрисовывает матрицу ошибок для задачи классификации
@@ -661,7 +739,7 @@ def plot_confusion_matrix(
     title: Название для графика
     cmap: Цветовая палитра, по умолчанию: plt.cm.Blues
     """
-    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.imshow(cm, interpolation="nearest", cmap=cmap)
     plt.title(title)
     plt.colorbar()
     tick_marks = np.arange(len(classes))
@@ -671,27 +749,33 @@ def plot_confusion_matrix(
     plt.ylim([bottom, top])
 
     if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
         print("Normalized confusion matrix")
     else:
-        print('Confusion matrix, without normalization')
+        print("Confusion matrix, without normalization")
 
     print(cm)
 
-    thresh = cm.max() / 2.
+    thresh = cm.max() / 2.0
     for i, j in product(range(cm.shape[0]), range(cm.shape[1])):
-        plt.text(j, i, cm[i, j],
-                 horizontalalignment="center",
-                 verticalalignment="center",
-                 color="white" if cm[i, j] > thresh else "black")
+        plt.text(
+            j,
+            i,
+            cm[i, j],
+            horizontalalignment="center",
+            verticalalignment="center",
+            color="white" if cm[i, j] > thresh else "black",
+        )
 
     plt.tight_layout()
-    plt.ylabel('Истинный класс')
-    plt.xlabel('Предсказанный класс')
+    plt.ylabel("Истинный класс")
+    plt.xlabel("Предсказанный класс")
     plt.show()
 
 
-def regression_report(X: pd.core.frame.DataFrame, y: np.ndarray, model: object, **kwargs) -> dict:
+def regression_report(
+    X: pd.core.frame.DataFrame, y: np.ndarray, model: object, **kwargs
+) -> dict:
     """
     Обучает заданную модель регрессии на предоставленных данных.
     В стандартный поток вывода публикуются метрики качества построенной модели и важность признаков.

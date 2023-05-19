@@ -1,6 +1,7 @@
 from scipy.stats import t as student
 
-from podlozhnyy_module import pd, sns, plt
+from podlozhnyy_module import pd, plt, sns
+
 
 def plot_corr_matrix(
     df: pd.core.frame.DataFrame,
@@ -19,9 +20,9 @@ def plot_corr_matrix(
     if features is None:
         features = df.columns[df.dtypes != "object"]
     corr = df[features].corr(method=method)
-    plt.figure(figsize=(10, 10), facecolor='floralwhite')
-    sns.heatmap(corr, vmax=1, square=True, annot=True, cmap='cubehelix')
-    plt.title('Correlation between different features')
+    plt.figure(figsize=(10, 10), facecolor="floralwhite")
+    sns.heatmap(corr, vmax=1, square=True, annot=True, cmap="cubehelix")
+    plt.title("Correlation between different features")
     bottom, top = plt.ylim()
     plt.ylim([bottom + 0.05, top - 0.05])
     plt.show()

@@ -1,5 +1,5 @@
 from scipy.optimize import minimize
-from scipy.stats import pareto, bernoulli
+from scipy.stats import bernoulli, pareto
 
 from podlozhnyy_module import np
 
@@ -49,7 +49,6 @@ def ParetoApprox(
     bounds = ((0.01, np.inf), (-np.inf, np.inf), (-np.inf, np.inf))
     result = minimize(func, x0=[1, 0, 1], bounds=bounds)
     return {"alpha": result.x[0], "loc": result.x[1], "scale": result.x[2]}
-
 
 
 class ParetoExtended:
