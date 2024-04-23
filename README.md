@@ -39,6 +39,12 @@ $ python setup.py sdist bdist_wheel
 $ twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```
 
+4.1 UPDATE: since 2024 PyPi doesn't allow to push without API token, so you need to [create](https://pypi.org/help/#apitoken) one and then push using either `.pypirc` file, what actually doesn't work for me, or specifying credentials during the call
+
+```
+$ twine upload --repository-url https://test.pypi.org/legacy/ dist/* -u __token__ -p <YOUR TOKEN>
+```
+
 5. To test the package create another virtual environment and then install library from PyPI using the following command
 ```
 $ pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple podlozhnyy-module
