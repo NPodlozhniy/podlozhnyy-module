@@ -151,7 +151,7 @@ def make_bucket(df, feature: str, num_buck: int=10, group_size: str=None):
     return df.assign(bucket=bucket)
 
 
-def _format_(x, decimal=3):
+def _format_(x, decimal=2):
     """
     Форматируем названия бакетов
 
@@ -169,17 +169,21 @@ def _format_(x, decimal=3):
                 return "%d" % x
         if div == 0:
             power = int(np.floor(np.log10(abs(mod))))
-            digits = decimal - power - 1
-            return "%s" % np.around(x, digits)
+            if power > -3:
+                digits = decimal - power - 1
+                return "%s" % np.around(x, digits)
+            else:
+                return f"%.{decimal}e" % x
         else:
             power = int(np.floor(np.log10(abs(div))))
-            digits = decimal
             if power < 3:
-                return "%s" % np.around(x, digits)
-            elif power < 10:
-                return "%se+0%s" % (np.around(x / np.power(10, power), digits), power)
+                return "%s" % np.around(x, decimal)
             else:
-                return "%se+%s" % (np.around(x / np.power(10, power), digits), power)
+                # "%se+%s" % (np.around(x / np.power(10, power), decimal), power)
+                # doesn't seem working the same way in case of power is above 9
+                # as np.power(10, 10) returns something weird - 1410065408
+                # it's casting to float64 to perform the operation and then casting back
+                return f"%.{decimal}e" % x
     return "%s" % x
 
 
