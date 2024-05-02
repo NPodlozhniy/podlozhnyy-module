@@ -93,7 +93,7 @@ bokeh_opts = {
 }
 
 
-def make_bucket(df, feature, num_buck=10):
+def make_bucket(df, feature: str, num_buck: int=10, group_size: str=None):
     """
     Производит разбиение на бакеты
 
@@ -101,9 +101,36 @@ def make_bucket(df, feature, num_buck=10):
     ----------
     df: Объект pandas.DataFrame
     feature: Название признака числового или категориального
-    num_buck: Количество бакетов для группирровки
+    num_buck: Количество бакетов для группировки, default=10
+    group_size: Если данные представляют собой уже агрегированную статистику,
+        то есть отдельная строка соответствует не одному элементу выборки,
+        а сумме целевой переменной по набору элементов, переменная соответствует
+        названию колонки, содержащей кол-во объектов в каждой группе строк.
     """
-    bucket = np.ceil(df[feature].rank(pct=True) * num_buck).fillna(num_buck + 1)
+    if df[feature].dtype == "category":
+        df[feature] = df[feature].cat.as_ordered()
+
+    if group_size:
+        data_ranked = df[[feature]].join(
+            df[[feature, group_size]]
+            .sort_values(by=feature)
+            .loc[:, group_size]
+            .cumsum(skipna=True)
+        )
+        totals = (
+            data_ranked
+            .groupby(feature)
+            .agg({group_size: "max"})
+            .rename(columns={group_size: "total"})
+        )
+        bucket = np.ceil(
+            data_ranked.join(totals, on=feature)["total"] / totals["total"].max() * num_buck
+        ).fillna(num_buck + 1)
+    else:
+        bucket = np.ceil(
+            df[feature].rank(pct=True) * num_buck
+        ).fillna(num_buck + 1)
+
     agg = df[feature].groupby(bucket).agg(["min", "max"])
 
     def _format_buck(row):
@@ -249,7 +276,7 @@ def _woe_confint(n, cnt, q):
     return _woe(p_low, q), _woe(p_high, q)
 
 
-def bad_rate(df, feature, target, num_buck=10):
+def bad_rate(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
     """
     Считает bad_rate для каждого бакета признака в модели классификации.
     Возвращает датафрейм с аггрегациями (сумма таргета в бакете, среднее значение предсказания,
@@ -263,10 +290,10 @@ def bad_rate(df, feature, target, num_buck=10):
     target: Название целевой переменной
     num_buck: Количество бакетов, если признак числовой
     """
-    if df[feature].dtype == "O":
+    if df[feature].dtype in ["object", "category"]:
         return (
-            df.pipe(make_bucket, feature, num_buck)
-            .assign(obj_cnt=1)
+            df.pipe(make_bucket, feature, num_buck, group_size)
+            .assign(obj_cnt=df[group_size] if group_size else 1)
             .groupby("bucket")
             .agg({target: "sum", "obj_cnt": "sum"})
             .rename(columns={target: "target_sum"})
@@ -274,16 +301,18 @@ def bad_rate(df, feature, target, num_buck=10):
         )
     else:
         return (
-            df.pipe(make_bucket, feature, num_buck)
-            .assign(obj_cnt=1)
+            df.pipe(make_bucket, feature, num_buck, group_size)
+            .assign(obj_cnt=df[group_size] if group_size else 1)
+            .assign(feature_sum=lambda x: x.obj_cnt * x[feature])
             .groupby("bucket")
-            .agg({target: "sum", "obj_cnt": "sum", feature: "mean"})
-            .rename(columns={target: "target_sum", feature: "feature_avg"})
+            .agg({target: "sum", "obj_cnt": "sum", "feature_sum": "sum"})
+            .rename(columns={target: "target_sum"})
+            .assign(feature_avg=lambda x: x.feature_sum / x.obj_cnt)
             .assign(bad_rate=lambda x: x.target_sum / x.obj_cnt)
         )
 
 
-def woe(df, feature, target, num_buck=10):
+def woe(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
     """
     Считает WOE для признака в модели классификации.
     Доля объектов каждого класса ограничивается 0.001 - снизу и 0.999 - сверху.
@@ -295,18 +324,18 @@ def woe(df, feature, target, num_buck=10):
     target: Название целевой переменной
     num_buck: Количество бакетов, если признак числовой
     """
-    agg = bad_rate(df, feature, target, num_buck).reset_index()
-    agg = agg[agg.target_sum != 0]
+    agg = df.pipe(
+        bad_rate, feature, target, num_buck, group_size
+    ).query("`target_sum` > 0")
     return (
         agg.assign(nums=agg["obj_cnt"].sum(), bad_nums=agg["target_sum"].sum())
         .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums))
         .drop(["bad_nums", "nums"], axis=1)
         .sort_values(by="woe", ascending=False)
-        .set_index("bucket")
     )
 
 
-def IV(df, feature, target, num_buck=10):
+def IV(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
     """
     Считает Information Value для признака в модели бинарной классификации.
 
@@ -318,7 +347,7 @@ def IV(df, feature, target, num_buck=10):
     num_buck: Количество бакетов, если признак числовой
     """
     return (
-        woe(df, feature, target, num_buck)
+        woe(df, feature, target, num_buck, group_size)
         .assign(
             iv=lambda x: (
                 x.target_sum / x.target_sum.sum()
@@ -330,7 +359,7 @@ def IV(df, feature, target, num_buck=10):
     )
 
 
-def iv_report(df, features, target, num_buck=10):
+def iv_report(df, features: str, target: str, num_buck: int=10, group_size: str=None):
     """
     Считает IV для указанных признаков в модели классификации.
     Возвращает в порядке убывания кортежи из трех элементов:(признак, IV, интерпретация)
@@ -358,14 +387,14 @@ def iv_report(df, features, target, num_buck=10):
 
     ivs = {}
     for column in list(features):
-        ivs[column] = desc(IV(df, column, target, num_buck))
+        ivs[column] = desc(IV(df, column, target, num_buck, group_size))
 
     ivs = list(ivs.items())
     ivs.sort(key=lambda i: i[1], reverse=True)
     print("         Name         ||  Value  || Interpretation")
     print("--------------------------------------------------")
     for feature in ivs:
-        print(f"{feature[0]:21} ||  {feature[1][0]:.3f}  || {feature[1][1]}")
+        print(f"{feature[0][:20]:21} ||  {feature[1][0]:.3f}  || {feature[1][1]}")
 
 
 def iv_agg(df, features, target, num_bucks=[10, 10]):
@@ -410,8 +439,7 @@ def iv_agg(df, features, target, num_bucks=[10, 10]):
             "target_sum": target_sum.iloc[:-1, :-1].unstack().values,
             "bad_rate": bad_rate.iloc[:-1, :-1].unstack().values,
         }
-    )
-    agg = agg[agg.target_sum != 0]
+    ).query("`target_sum` > 0")
     return (
         agg.assign(nums=agg["obj_cnt"].sum(), bad_nums=agg["target_sum"].sum())
         .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums))
@@ -612,12 +640,13 @@ def woe_stab(df, feature, target, date, num_buck=3, date_freq="Q"):
             )[1],
         )
         .assign(woe_u=lambda x: x.woe_high - x.woe, woe_b=lambda x: x.woe - x.woe_low)
+        .query("`target_sum` > 0")
         .reset_index()
     )
 
-    agg = agg[agg.target_sum != 0]
-
-    data = hv.Dataset(agg, kdims=["bucket", date], vdims=["woe", "woe_b", "woe_u"])
+    data = hv.Dataset(
+        agg, kdims=["bucket", date], vdims=["woe", "woe_b", "woe_u"]
+    )
 
     confident_intervals = data.to.spread(
         kdims=[date], vdims=["woe", "woe_b", "woe_u"], group="Confident Intervals"
