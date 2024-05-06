@@ -751,7 +751,7 @@ def feature_importance(names, values, verbose=False, thr=0.05):
         coef_list = list(val_dict.items())
         coef_list.sort(key=lambda i: i[1], reverse=True)
         for i in coef_list:
-            if i[1] >= thr:
+            if abs(i[1]) >= thr:
                 print(i[0], ":", round(i[1], 5))
     return val_dict
 
