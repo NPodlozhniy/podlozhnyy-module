@@ -4,6 +4,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from podlozhnyy_module import (
+    abtesting,
     bootstrap,
     charts,
     collocation,
