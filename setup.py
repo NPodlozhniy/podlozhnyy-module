@@ -8,7 +8,7 @@ with open("requirements.txt", "r") as req_file:
 
 setup(
     name="podlozhnyy_module",
-    version="2.4-beta.0",
+    version="2.5rc0",
     description="One place for the most useful methods for work",
     long_description=readme,
     long_description_content_type="text/markdown",

@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 
 from podlozhnyy_module import (
     abtesting,
+    anova,
     bootstrap,
     charts,
     collocation,
@@ -16,7 +17,5 @@ from podlozhnyy_module import (
     timetest,
 )
 
-print("Привет! Ты импортировал модуль созданный https://github.com/NPodlozhniy")
-print("В нем собраны часто востребованные в работе аналитика методы")
-print("Посмотреть полный cписок пакетов можно с помощью dir(<название библиотеки>)")
-print("Приятного использования!")
+print("Hey! You've successfully imported the module featured by https://github.com/NPodlozhniy")
+print("To check the entire set of methods, execute dir(podlozhnyy_module). Enjoy!")
