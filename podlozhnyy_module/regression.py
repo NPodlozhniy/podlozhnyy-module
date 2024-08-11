@@ -1,3 +1,4 @@
+import sys
 from functools import wraps
 from itertools import product
 from math import log
@@ -20,7 +21,11 @@ def _set_options(func):
         diagramm = func(*args, **kwargs)
         for bnd, opts in [("matplotlib", matplotlib_opts), ("bokeh", bokeh_opts)]:
             if bnd in hv.Store._options and bnd == hv.Store.current_backend:
-                return diagramm.opts(opts)
+                return (
+                    hv.opts.apply_groups(diagramm, opts)
+                    if sys.version_info > (3, 8)
+                    else diagramm.opts(opts)
+                )
         return diagramm
 
     return wrapper
@@ -63,13 +68,22 @@ matplotlib_opts = {
         "plot": dict(show_grid=True, xrotation=45),
         "style": dict(facecolor=colors, alpha=0.3),
     },
+    "Bars.Observed_Bad_Rate": {
+        "plot": dict(show_legend=True, xrotation=90),
+        "style": dict(facecolor=colors.values[0]),
+    },
+    "Curve.Predicted_Bad_Rate": {
+        "plot": dict(show_legend=True, xrotation=90),
+        "style": dict(facecolor=colors.values[1]),
+    },
+    "Overlay.Gain_Chart": {
+        "plot": dict(legend_position="top_left"),
+    },
 }
 
 bokeh_opts = {
     "Scatter.Weight_of_Evidence": {
-        "plot": dict(
-            show_grid=True, tools=["hover"], legend_position="right", width=450
-        ),
+        "plot": dict(show_grid=True, tools=["hover"], legend_position="right", width=450),
         "style": dict(color="r", size=5),
     },
     "NdOverlay.Objects_rate": {
@@ -90,10 +104,21 @@ bokeh_opts = {
         "plot": dict(show_grid=True, xrotation=45),
         "style": dict(color=colors, alpha=0.3),
     },
+    "Bars.Observed_Bad_Rate": {
+        "plot": dict(show_legend=True, xrotation=90),
+        "style": dict(color=colors.values[0]),
+    },
+    "Curve.Predicted_Bad_Rate": {
+        "plot": dict(show_legend=True, xrotation=90),
+        "style": dict(color=colors.values[1]),
+    },
+    "Overlay.Gain_Chart": {
+        "plot": dict(legend_position="top_left"),
+    },
 }
 
 
-def make_bucket(df, feature: str, num_buck: int=10, group_size: str=None):
+def make_bucket(df, feature: str, num_buck: int = 10, group_size: str = None):
     """
     Производит разбиение на бакеты
 
@@ -118,18 +143,17 @@ def make_bucket(df, feature: str, num_buck: int=10, group_size: str=None):
             .cumsum(skipna=True)
         )
         totals = (
-            data_ranked
-            .groupby(feature)
+            data_ranked.groupby(feature)
             .agg({group_size: "max"})
             .rename(columns={group_size: "total"})
         )
         bucket = np.ceil(
-            data_ranked.join(totals, on=feature)["total"] / totals["total"].max() * num_buck
+            data_ranked.join(totals, on=feature)["total"]
+            / totals["total"].max()
+            * num_buck
         ).fillna(num_buck + 1)
     else:
-        bucket = np.ceil(
-            df[feature].rank(pct=True) * num_buck
-        ).fillna(num_buck + 1)
+        bucket = np.ceil(df[feature].rank(pct=True) * num_buck).fillna(num_buck + 1)
 
     agg = df[feature].groupby(bucket).agg(["min", "max"])
 
@@ -201,7 +225,8 @@ def check_linearity(df, feature, target, num_buck=10):
     num_buck: Количество бакетов, если признак числовой
     """
     return (
-        df.pipe(make_bucket, feature, num_buck)
+        df[[feature, target]]
+        .pipe(make_bucket, feature, num_buck)
         .groupby("bucket")
         .mean()
         .pipe(
@@ -209,7 +234,7 @@ def check_linearity(df, feature, target, num_buck=10):
                 zip(np.array(x[feature]), np.array(x[target])),
                 kdims=f"{feature}",
                 vdims=f"{target}",
-                label=f"Проверка линейности зависимости {target} от {feature}",
+                label=f"Checking the linearity of dependence {target} on {feature}",
             )
             * simple_reg(np.array(x[feature]), np.array(x[target]))
         )
@@ -238,7 +263,7 @@ def check_homoscedacity(df, feature, target):
         zip(predicts, get_residuals(df[target], predicts)),
         kdims=["Estimated target"],
         vdims=["Residual"],
-        label=f"Проверка гомоскедастичности признака {feature}",
+        label=f"Homoscedasticity check of {feature}",
     )
 
 
@@ -280,7 +305,7 @@ def _woe_confint(n, cnt, q):
     return _woe(p_low, q), _woe(p_high, q)
 
 
-def bad_rate(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
+def bad_rate(df, feature: str, target: str, num_buck: int = 10, group_size: str = None):
     """
     Считает bad_rate для каждого бакета признака в модели классификации.
     Возвращает датафрейм с аггрегациями (сумма таргета в бакете, среднее значение предсказания,
@@ -316,7 +341,7 @@ def bad_rate(df, feature: str, target: str, num_buck: int=10, group_size: str=No
         )
 
 
-def woe(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
+def woe(df, feature: str, target: str, num_buck: int = 10, group_size: str = None):
     """
     Считает WOE для признака в модели классификации.
     Доля объектов каждого класса ограничивается 0.001 - снизу и 0.999 - сверху.
@@ -328,9 +353,9 @@ def woe(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
     target: Название целевой переменной
     num_buck: Количество бакетов, если признак числовой
     """
-    agg = df.pipe(
-        bad_rate, feature, target, num_buck, group_size
-    ).query("`target_sum` > 0")
+    agg = df.pipe(bad_rate, feature, target, num_buck, group_size).query(
+        "`target_sum` > 0"
+    )
     return (
         agg.assign(nums=agg["obj_cnt"].sum(), bad_nums=agg["target_sum"].sum())
         .assign(woe=lambda x: _woe(x.bad_rate, x.bad_nums / x.nums))
@@ -339,7 +364,7 @@ def woe(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
     )
 
 
-def IV(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
+def IV(df, feature: str, target: str, num_buck: int = 10, group_size: str = None):
     """
     Считает Information Value для признака в модели бинарной классификации.
 
@@ -363,7 +388,9 @@ def IV(df, feature: str, target: str, num_buck: int=10, group_size: str=None):
     )
 
 
-def iv_report(df, features: str, target: str, num_buck: int=10, group_size: str=None):
+def iv_report(
+    df, features: str, target: str, num_buck: int = 10, group_size: str = None
+):
     """
     Считает IV для указанных признаков в модели классификации.
     Возвращает в порядке убывания кортежи из трех элементов:(признак, IV, интерпретация)
@@ -648,9 +675,7 @@ def woe_stab(df, feature, target, date, num_buck=3, date_freq="Q"):
         .reset_index()
     )
 
-    data = hv.Dataset(
-        agg, kdims=["bucket", date], vdims=["woe", "woe_b", "woe_u"]
-    )
+    data = hv.Dataset(agg, kdims=["bucket", date], vdims=["woe", "woe_b", "woe_u"])
 
     confident_intervals = data.to.spread(
         kdims=[date], vdims=["woe", "woe_b", "woe_u"], group="Confident Intervals"
@@ -717,18 +742,25 @@ def plot_gain_chart(target, predict, num_buck=10):
     )
 
     bars_gain = hv.Bars(
-        data, kdims=["bucket"], vdims=["bad_rate"], label="observed"
-    ).opts(plot={"xrotation": 90, "show_legend": True}, style={"color": "yellow"})
+        data,
+        kdims=["bucket"],
+        vdims=["bad_rate"],
+        label="observed",
+        group="Observed Bad Rate",
+    )
 
     curve_gain = hv.Curve(
-        data, kdims=["bucket"], vdims=["predict"], label="predicted"
-    ).opts(plot={"xrotation": 90, "show_legend": True}, style={"color": "black"})
+        data,
+        kdims=["bucket"],
+        vdims=["predict"],
+        label="predicted",
+        group="Predicted Bad Rate",
+    )
 
     return (
-        hv.Overlay([bars_gain, curve_gain])
+        hv.Overlay([bars_gain, curve_gain], group="Gain Chart")
         .redim.label(**{"target": "Bad Rate"})
         .relabel(f"HL_score = {H}")
-        .opts(plot={"legend_position": "top_left"})
     )
 
 
@@ -756,7 +788,6 @@ def feature_importance(names, values, verbose=False, thr=0.05):
     return val_dict
 
 
-@_set_options
 def plot_confusion_matrix(
     cm, classes, normalize=False, title="Confusion matrix", cmap=plt.cm.Blues
 ) -> None:
@@ -785,7 +816,7 @@ def plot_confusion_matrix(
         cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
         print("Normalized confusion matrix")
     else:
-        print("Confusion matrix, without normalization")
+        print("Confusion matrix w/o normalization")
 
     print(cm)
 
@@ -801,8 +832,8 @@ def plot_confusion_matrix(
         )
 
     plt.tight_layout()
-    plt.ylabel("Истинный класс")
-    plt.xlabel("Предсказанный класс")
+    plt.ylabel("Ground Truth class")
+    plt.xlabel("Predicted class")
     plt.show()
 
 
