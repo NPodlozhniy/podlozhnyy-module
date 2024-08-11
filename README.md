@@ -1,8 +1,10 @@
 # podlozhnyy-module
 
 A set of tools to simplify data analysis in particular:
- - risk analytics
- - time series construction
+ - risk analytics package
+ - statistical utils for AB testing, analysis of correlations and variance
+ - bootstrap method and permutations criteria for non-parametric testing
+ - time series analysis and forecasting
  - classical machine learning
 
 ### Getting started
