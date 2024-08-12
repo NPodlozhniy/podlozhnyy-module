@@ -83,9 +83,8 @@ class ParetoExtended:
     def rvs(self, size: int) -> np.ndarray:
         return np.array(
             [
-                max(self._zero_time, x)
+                x * self._distribution.rvs() + (1 - x) * self._zero_time
                 for x in bernoulli.rvs(1 - self._zero_p, size=size)
-                * self._distribution.rvs(size)
             ]
         )
 
