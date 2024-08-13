@@ -58,7 +58,7 @@ class ParetoExtended:
 
     Parameters
     ----------
-    alpha: Основной параметр распределения Парето (см. модуль `scipy.stats.pareto`)
+    alpha: Положительный параметр распределения Парето (обозначается `b`в модуле `scipy.stats.pareto`)
     default_value: Значение по умолчанию
     default_proba: Вероятность случайной величины принять значения по умолчанию
 
@@ -69,22 +69,36 @@ class ParetoExtended:
             Сдвиг распределения, default=0
         scale: float
             Масштаб распределения, default=1
+
+    Если указаны loc и/или scale, то `pareto.pdf(x, b, loc, scale)` ~ `pareto.pdf(y, b) / scale`
+    где y = (x - loc) / scale
     """
 
     def __init__(
         self, alpha: float, default_value: float, default_proba: float, **kwargs
     ) -> None:
+
+        loc = kwargs.get("loc", 0)
+        scale = kwargs.get("scale", 1)
+
+        if default_value > scale + loc:
+            raise ValueError(
+                "`default_value` shouldn't exceed pareto distribution values, "
+                f"maximum permissible value = {scale + loc}"
+            )
+
         self._zero_p = default_proba
         self._zero_time = default_value
-        self._distribution = pareto(
-            b=alpha, loc=kwargs.get("loc", 0), scale=kwargs.get("scale", 1)
-        )
+        self._distribution = pareto(b=alpha, loc=loc, scale=scale)
 
     def rvs(self, size: int) -> np.ndarray:
         return np.array(
             [
-                x * self._distribution.rvs() + (1 - x) * self._zero_time
-                for x in bernoulli.rvs(1 - self._zero_p, size=size)
+                x * y + (1 - x) * self._zero_time
+                for x, y in zip(
+                    bernoulli.rvs(1 - self._zero_p, size=size),
+                    self._distribution.rvs(size),
+                )
             ]
         )
 
