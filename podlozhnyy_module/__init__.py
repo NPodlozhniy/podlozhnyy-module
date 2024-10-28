@@ -9,6 +9,7 @@ from podlozhnyy_module import (
     bootstrap,
     charts,
     collocation,
+    contingency,
     correlation,
     pareto,
     permutation,

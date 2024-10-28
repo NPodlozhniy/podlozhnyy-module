@@ -130,3 +130,6 @@ dmypy.json
 
 # Don't include PyPi config
 .pypirc
+
+# Don't include PyCharm artifacts
+.idea
