@@ -1,7 +1,7 @@
 import math
 from functools import wraps
 from multiprocessing import Process, Queue
-from typing import Optional
+from typing import Literal, Optional
 
 from scipy.stats import chi2_contingency, fisher_exact
 
@@ -190,7 +190,6 @@ def subprocess_output(procedure, queue: Optional[Queue] = None):
 def concurrent_test(
     method: object,
     table: np.ndarray,
-    name: str = "NxM Fisher's exact test",
     timeout: int = 10,
 ) -> float:
     """
@@ -204,8 +203,6 @@ def concurrent_test(
         The method to be run in a separate process.
     table: np.ndarray
         Contingency matrix M x N
-    name: str
-        Process name
     timeout: int
         Time limit for subprocess execution
 
@@ -215,7 +212,7 @@ def concurrent_test(
     """
     queue = Queue()
     procedure = subprocess_output(method, queue)
-    p = Process(target=procedure, args=(table,), name=name)
+    p = Process(target=procedure, args=(table,), name="NxM Fisher's exact test")
     p.start()
     p.join(timeout=timeout)
     p.terminate()
@@ -224,7 +221,7 @@ def concurrent_test(
         return p_value
 
 
-def _contingency_test(table: np.ndarray, timeout: int) -> dict:
+def _contingency_test(table: np.ndarray, criterion: str, timeout: int) -> dict:
     """
     Performs a test of independence of variables in a contingency table
 
@@ -232,6 +229,8 @@ def _contingency_test(table: np.ndarray, timeout: int) -> dict:
     ----------
     table: np.ndarray
         Contingency matrix M x N
+    criterion: str
+        Test to be performed
     timeout: int
         Time limit for Fisher's exact test
 
@@ -243,29 +242,39 @@ def _contingency_test(table: np.ndarray, timeout: int) -> dict:
         "error": str (optional)
     }
     """
+    if criterion not in {"chi-squared", "fisher-exact", "textbook"}:
+        raise ValueError(
+            "Incorrect type of criterion, "
+            "should be one of the following: 'chi-squared', 'fisher-exact', 'textbook'"
+        )
+
+    # No timeout if "fisher-exact" criterion is set
+    timeout = timeout + 10_000 * (criterion == "fisher-exact")
 
     result = dict.fromkeys(["method", "p-value"])
 
     try:
-        if table.shape == (2, 2) and (table >= 10).all():
+        if criterion == "textbook" and table.shape == (2, 2) and (table >= 10).all():
             result["method"] = "2x2 Pearson's chi-squared test with Yates"
             test = chi2_contingency(table, correction=True)
             result["p-value"] = test.pvalue
-        elif table.shape == (2, 2):
+        elif criterion != "chi-squared" and table.shape == (2, 2):
             result["method"] = "2x2 Fisher's exact test in Python"
             test = fisher_exact(table)
             result["p-value"] = test.pvalue
-        elif np.sum(table >= 5) >= np.size(table) * 0.80:
+        elif criterion == "chi-squared" or (
+            criterion == "textbook" and np.sum(table >= 5) >= np.size(table) * 0.80
+        ):
             result["method"] = "NxM Pearson's chi-squared test w/o Yates"
             test = chi2_contingency(table, correction=False)
             result["p-value"] = test.pvalue
         else:  # try Exact fisher test if it doesn't take too much
-            if np.prod(table.shape) > 10:
+            if np.size(table) > 10:
                 name = "NxM Fisher's exact test in R"
-                p_value = concurrent_test(r_fisher_exact_test, table, name, timeout)
+                p_value = concurrent_test(r_fisher_exact_test, table, timeout)
             else:
                 name = "NxM Fisher's exact test in Python"
-                p_value = concurrent_test(nxm_fisher_exact_test, table, name, timeout)
+                p_value = concurrent_test(nxm_fisher_exact_test, table, timeout)
 
             result["method"] = name
             if p_value:
@@ -314,7 +323,11 @@ def _validate_input(table: list[list]) -> np.array:
     return array
 
 
-def general_contingency_test(table: list[list], timeout: int = 10) -> dict:
+def general_contingency_test(
+    table: list[list],
+    criterion: Literal["textbook", "chi-squared", "fisher-exact"] = "textbook",
+    timeout: int = 10,
+) -> dict:
     """
     Performs a test of independence of variables in a contingency table
 
@@ -323,6 +336,9 @@ def general_contingency_test(table: list[list], timeout: int = 10) -> dict:
     table: list[list]
         matrix M x N,
         where M is the number of compared groups and N is the set of measures
+    criterion: str
+        If 'textbook' the best practice is applied, oit depends on the `table` which procedure is applied, otherwise an
+        explicit inference of Fisher Exact or Chi-Squared test happens for 'fisher-exact' or 'chi-squared' accordingly
     timeout: int
         Time limit for Fisher's exact test,
         if the calculation takes longer chi-squared test is applied instead
@@ -335,4 +351,4 @@ def general_contingency_test(table: list[list], timeout: int = 10) -> dict:
         "error": str (optional)
     }
     """
-    return _contingency_test(_validate_input(table), timeout)
+    return _contingency_test(_validate_input(table), criterion, timeout)
